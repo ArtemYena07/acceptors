@@ -92,7 +92,7 @@ def synthesis_method(allowed_words: list, banned_words: list, alphabet: set) -> 
       if acceptor.get_new_state(state, letter) == 'trash':
         new_state = random.choice(list(filter(lambda x: x != 'trash' and x != state, states)))
         acceptor.set_transition(state, letter, new_state)
-        new_acceptor, _ = minimize_acceptor(acceptor)
+        new_acceptor = hopkroft_minimize_acceptor(acceptor)
         if any(map(lambda word: new_acceptor.accept_word(word), banned_words)):
           acceptor.set_transition(state, letter, 'trash')
         else:
@@ -185,7 +185,7 @@ def hopkroft_minimize_acceptor(acceptor: Acceptor) -> Acceptor:
     P_names = set()
     states_map = {}
     for i in P.values():
-        name = reduce(lambda acc, elem: acc + elem, i, '')
+        name = reduce(lambda acc, elem: acc + elem, sorted(i), '')
         P_names.add(name)
         for state in i:
             states_map[state] = name

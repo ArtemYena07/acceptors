@@ -21,8 +21,9 @@ def is_finish(acceptor: Acceptor, banned_words: List[str]) -> bool:
     return True
 
 
-def process_step_v2(acceptor: Acceptor, from_state_name: str,
-                    to_state_name: str, letter: str, banned_words: List[str]) -> Tuple[int, Acceptor, bool]:
+def process_step_v1(acceptor: Acceptor, from_state_name: str,
+                    to_state_name: str, letter: str, banned_words: List[str]
+                    ) -> Tuple[int, Acceptor, bool]:
     current_destination = acceptor.get_new_state(from_state_name, letter)
     if current_destination != 'trash':
         return -10, acceptor, False
@@ -37,35 +38,23 @@ def process_step_v2(acceptor: Acceptor, from_state_name: str,
     else:
         acceptor = utils.hopkroft_minimize_acceptor(acceptor)
         new_num_of_states = len(acceptor.states)
-        return 15 * (previous_num_of_states - new_num_of_states), \
+        return 1 + 15 * (previous_num_of_states - new_num_of_states), \
                utils.hopkroft_minimize_acceptor(acceptor), is_finish(acceptor, banned_words)
 
 
 def generate_q_table(acceptable_words, banned_words, alphabet,
-                     alpha=0.2, gamma=0.6, epsilon=0.5, n_repeats=20000):
+                     alpha=0.1, gamma=0.47, epsilon=0.5, n_repeats=20000):
 
     acceptor = utils.make_tree_like_acceptor(acceptable_words, alphabet)
     acceptor = utils.hopkroft_minimize_acceptor(acceptor)
 
     states_dict = {}
-    state_letter_prod = list(
-        product(list(filter(lambda x: x != 'trash', list(acceptor.states.keys()))), alphabet)
-    )
-
-    cnt = 0
-
-    max_state_name_len = max(map(len, acceptor.states.keys()))
-    state_array = np.array(['a' * (max_state_name_len * 3 + 2) for _ in state_letter_prod])
-    for state, letter in state_letter_prod:
-        state_array[cnt] = state + '_' + letter + '_' + acceptor.get_new_state(state, letter)
-        cnt += 1
+    state_array = np.array(list(acceptor.states.keys()))
 
     q_table = {0: np.zeros(acceptor.actions_num)}
     states_cnt = 0
     state_array.sort()
     states_dict[tuple(state_array)] = 0
-
-    base_state_array = tuple(state_array)
 
     actions_dict = {}
     actions_count = 0
@@ -83,38 +72,28 @@ def generate_q_table(acceptable_words, banned_words, alphabet,
 
     for i in range(0, n_repeats):
         state = 0
-        eps_new = epsilon - (epsilon * i / n_repeats)
 
         epochs, penalties, reward, = 0, 0, 0
         done = False
-        state_array = np.array(base_state_array)
         acceptor = utils.make_tree_like_acceptor(acceptable_words, alphabet)
         acceptor = utils.hopkroft_minimize_acceptor(acceptor)
 
         while not done:
             actions_dict = states_actions_dict[state]
 
-            if random.uniform(0, 1) < eps_new:
-                action = np.random.randint(0, acceptor.actions_num)  # Explore action space
+            if random.uniform(0, 1) < 1 - (i / n_repeats):
+                action = np.random.randint(0, len(actions_dict))  # Explore action space
             else:
                 action = np.argmax(q_table[state])  # Exploit learned values
+            # print(action, q_table[state][action])
 
             state_from, state_to, letter = actions_dict[action]
 
-            reward, acceptor, done = process_step_v2(
+            reward, acceptor, done = process_step_v1(
                 acceptor, state_from, state_to, letter, banned_words
             )
 
-            state_letter_prod = list(
-                product(list(filter(lambda x: x != 'trash', list(acceptor.states.keys()))), alphabet))
-            cnt = 0
-
-            max_state_name_len = max(map(len, acceptor.states.keys()))
-            state_array = np.array(['a' * (max_state_name_len * 3 + 2) for _ in state_letter_prod])
-            for state_name, letter in state_letter_prod:
-                state_array[cnt] = state_name + '_' + letter + '_' + acceptor.get_new_state(state_name, letter)
-                cnt += 1
-
+            state_array = np.array(list(acceptor.states.keys()))
             state_array.sort()
 
             state_array = tuple(state_array)
@@ -137,13 +116,11 @@ def generate_q_table(acceptable_words, banned_words, alphabet,
 
             next_state = states_dict[state_array]
 
-            # if next_state == state:
-            #   print(state_array)
-
             old_value = q_table[state][action]
             next_max = np.max(q_table[next_state])
 
             new_value = (1 - alpha) * old_value + alpha * (reward + gamma * next_max)
+            #print(reward, next_state, new_value)
             q_table[state][action] = new_value
 
             if reward == -10:
