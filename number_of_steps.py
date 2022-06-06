@@ -95,13 +95,31 @@ if __name__ == '__main__':
     table, states_dict, states_actions_dict = pickle.load(f)
 
   count_synthesis(
-        ['abbab', 'cab', 'baaab'],
-        ['ababba', 'ccc', 'acab'],
-        {'a', 'b', 'c'}
+      # ['cbacb', 'abcbab', 'babcbabc'],
+      # ['bcbacbacb', 'ba'],
+      # ['acb', 'abac', 'cb', 'bb'],
+      # ['bcabcba', 'bcbcabca'],
+       ['bac', 'cacc', 'cab'],
+
+      # ['abcbca', 'bcabc', 'b'],
+      # ['a', 'b', 'c'],
+      # ['aa', 'bc'],
+      # ['bcab', 'acab', 'bac'],
+       ['aaaa', 'ccc'],
+      {'a', 'b', 'c'}
   )
 
   count_learned(table, states_dict, states_actions_dict,
-                ['abbab', 'cab', 'baaab'],
-                ['ababba', 'ccc', 'acab'],
-                {'a', 'b', 'c'}
+      # ['cbacb', 'abcbab', 'babcbabc'],
+      # ['bcbacbacb', 'ba'],
+      # ['acb', 'abac', 'cb', 'bb'],
+      # ['bcabcba', 'bcbcabca'],
+       ['bac', 'cacc', 'cab'],
+
+      # ['abcbca', 'bcabc', 'b'],
+      # ['a', 'b', 'c'],
+      # ['aa', 'bc'],
+      # ['bcab', 'acab', 'bac'],
+       ['aaaa', 'ccc'],
+      {'a', 'b', 'c'}
   )

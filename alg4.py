@@ -4,6 +4,8 @@ import numpy as np
 import random
 from acceptor import Acceptor
 from typing import List, Tuple
+import pickle
+import matplotlib.pyplot as plt
 
 
 def is_finish(acceptor: Acceptor, banned_words: List[str]) -> bool:
@@ -29,20 +31,16 @@ def process_step_v2(acceptor: Acceptor, from_state_name: str,
 
     acceptor.set_transition(from_state_name, letter, to_state_name)
 
-    previous_num_of_states = len(acceptor.states)
-
     if any(map(lambda word: acceptor.accept_word(word), banned_words)):
         acceptor.set_transition(from_state_name, letter, 'trash')
         return -5, acceptor, False
     else:
         acceptor = utils.hopkroft_minimize_acceptor(acceptor)
-        new_num_of_states = len(acceptor.states)
-        return 15 * (previous_num_of_states - new_num_of_states), \
-               utils.hopkroft_minimize_acceptor(acceptor), is_finish(acceptor, banned_words)
+        return 5, utils.hopkroft_minimize_acceptor(acceptor), is_finish(acceptor, banned_words)
 
 
 def generate_q_table(acceptable_words, banned_words, alphabet,
-                     alpha=0.2, gamma=0.6, epsilon=0.5, n_repeats=20000):
+                     alpha=0.2, gamma=0.6, epsilon=0.5, n_repeats=100000):
 
     acceptor = utils.make_tree_like_acceptor(acceptable_words, alphabet)
     acceptor = utils.hopkroft_minimize_acceptor(acceptor)
@@ -80,18 +78,19 @@ def generate_q_table(acceptable_words, banned_words, alphabet,
     states_qty = []
     steps = []
     states_actions_dict = {0: actions_dict}
+    epoch = 0
 
-    for i in range(0, n_repeats):
+    while epoch < n_repeats:
         state = 0
-        eps_new = epsilon - (epsilon * i / n_repeats)
 
-        epochs, penalties, reward, = 0, 0, 0
+        penalties, reward, = 0, 0
         done = False
         state_array = np.array(base_state_array)
         acceptor = utils.make_tree_like_acceptor(acceptable_words, alphabet)
         acceptor = utils.hopkroft_minimize_acceptor(acceptor)
 
         while not done:
+            eps_new = epsilon - (epsilon * epoch / n_repeats)
             actions_dict = states_actions_dict[state]
 
             if random.uniform(0, 1) < eps_new:
@@ -150,12 +149,49 @@ def generate_q_table(acceptable_words, banned_words, alphabet,
                 penalties += 1
 
             state = next_state
-            epochs += 1
+            epoch += 1
+            steps.append(epoch)
+            states_qty.append(len(q_table))
 
-        steps.append(i)
-        states_qty.append(len(q_table))
-        if i % 500 == 0:
-            print(f"Episode: {i}")
+            if epoch % 10000 == 0:
+                print(f"Episode: {epoch}")
+
+            if epoch == n_repeats:
+                break
 
     print("Training finished.\n")
     return q_table, steps, states_qty, states_dict, states_actions_dict
+
+
+if __name__ == '__main__':
+    table, steps, states_qty, states_dict, states_actions_dict = generate_q_table(
+        ['abbab', 'cab', 'baaab'],
+        ['ababba', 'ccc', 'acab'],
+        {'a', 'b', 'c'},
+        n_repeats=100000, epsilon=1
+    )
+    with open('data.pickle', 'wb') as f:
+        pickle.dump((table, states_dict, states_actions_dict), f)
+
+    # print(table)
+    fig, ax = plt.subplots(1, 1)
+    fig.set_figheight(5)
+    fig.set_figwidth(10)
+
+    ax.plot(steps, states_qty)
+    ax.set_xlabel(r"$t_{i}$", fontsize=12)
+    ax.set_ylabel(r"$|S|$", fontsize=12, rotation=0)
+    ax.set_title(r"$|S|$ for every $t_{i}$", fontsize=14)
+
+    plt.show()
+
+    fig, ax = plt.subplots(1, 1)
+    fig.set_figheight(5)
+    fig.set_figwidth(10)
+
+    n, bins, _ = ax.hist(list(map(lambda x: int(np.sqrt(len(x) / 3) + 1), table.values())))
+    ax.set_xlabel(r"$|Q_{s}|$", fontsize=12)
+    ax.set_ylabel(r"Number of such $s$ in $S$", fontsize=12)
+    ax.set_title(r"Number of configurations with such number of states", fontsize=14)
+
+    plt.show()
